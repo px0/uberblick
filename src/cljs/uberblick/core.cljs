@@ -76,6 +76,7 @@
 
 (defn PersonCard [user]
   [:div.z-depth-1 {:style {:max-width 100
+                          :margin 5 
                            :text-align :center}}
    [:div {:style {:width 100
                   :height 100
@@ -84,8 +85,21 @@
                    :font-size 16}}
     (:FirstName user)]])
 
+(defn Floor [title users]
+  [:div
+   [:h3 title]
+   [:hr]
+   [:div {:style {:display :flex
+                  :flex-direction :row
+                  :flex-wrap :wrap}}
+    (for [u users]
+      [PersonCard  u])
+    [:br]]])
+
 (defn home-page []
-  [PersonCard Max])
+  [:div
+   [Floor "North 4th" [Max Max Max]]
+   [Floor "3rd Floor" (repeat 10 Max)]])
 
 (defn About
 "Take the readme, render it to HTML, and set it as the element!"
