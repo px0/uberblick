@@ -84,12 +84,7 @@
 
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/cljs"]
                                               :compiler {:main "uberblick.dev"
-                                                         :source-map true}}
-
-
-                                        }
-
-                               }}
+                                                         :source-map true}}}}}
 
              :uberjar {:hooks [minify-assets.plugin/hooks]
                        :prep-tasks ["compile" ["cljsbuild" "once"]]
