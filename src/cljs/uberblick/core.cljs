@@ -35,10 +35,14 @@
 (defn extract-userids [users] (map :UserID users))
 
 (defn <users-details [userids]
-  (let [param-string (clojure.string/join "," userids)]
-    (http/jsonp "https://genome.klick.com:443/api/User.json"
-                {:query-params {:UserIDs param-string}
-                 :channel (chan 1 (extract-content))})))
+  (let [param-string (clojure.string/join "," userids)
+        out (chan)]
+    (go
+      (>! out (<! (http/jsonp "https://genome.klick.com:443/api/User.json"
+                              {:query-params {:UserIDs param-string}
+                               :channel (chan 1 (extract-content))})))
+      (async/close! out))
+    out))
 
 (defn add-full-picturepath
   [user]
@@ -51,13 +55,13 @@
                  (assoc m k v)
                  m)) {} grouped-users))
 
-(go
+#_(go
   (as-> [5702 4966] $
     (<! (<users-details $))
     (map add-full-picturepath $)
     (prn $)))
 
-(go
+#_(go
   (as-> (<! (<all-active-users)) $
     (extract-userids $)
     ;; (drop 200 $)
@@ -71,8 +75,41 @@
   
     (prn $)))
 
+(defn dbg [thing] (prn thing) thing)
 
-;; TODO:
+(comment
+  BusinessUnitName: Department
+  WorkTeam: Your actual team
+  
+  )
+
+(defn <get-all-active-klickster-profiles 
+  [userids]
+  (let [chunked-ids (partition-all 200 userids)
+        chunked-results (map <users-details chunked-ids)]
+    (->> chunked-results
+         (async/merge) ;put all results on a single channel
+         (async/reduce concat []) ;return a channel that'll end up having all results
+         )))
+
+(go
+  (as-> (<! (<all-active-users)) $
+    (extract-userids $)
+    ;; (drop 200 $)
+    (<! (<get-all-active-klickster-profiles $))
+    ((fn [everybody]
+       (prn 'everybody)
+       (prn (count everybody))
+       (def fucking-everybody everybody)
+       everybody) $)
+    (map add-full-picturepath $)
+    (group-by :KeyscanStatus $)
+    (filter-in? $)
+    ;; (reset! people-atom $)
+    (def people $)
+    (prn $)))
+
+;; Todo:
 ;; partition-by :KeyscanStatus. Then display and add filters.
 ;; add a <users-details test data set monday morning
 ;; partition the users by 200
@@ -188,7 +225,7 @@
            (async/reduce conj [])))) 
 
 
-  
+
 (go (prn (<! (get-all))))
 
 

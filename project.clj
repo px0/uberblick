@@ -67,6 +67,8 @@
 
                    :source-paths ["env/dev/clj"]
                    :plugins [[lein-figwheel "0.5.0-SNAPSHOT"]
+                             [cider/cider-nrepl "0.10.0-SNAPSHOT"]
+                             [refactor-nrepl "2.0.0-SNAPSHOT"]
                              ]
 
                    :injections [(require 'pjstadig.humane-test-output)
@@ -76,6 +78,8 @@
                               :server-port 3449
                               :nrepl-port 7002
                               :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"
+                                                     "cider.nrepl/cider-middleware"
+                                                 "refactor-nrepl.middleware/wrap-refactor"
                                                  ]
                               :css-dirs ["resources/public/css"]
                               :ring-handler uberblick.handler/app}
