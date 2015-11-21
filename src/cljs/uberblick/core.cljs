@@ -1,20 +1,16 @@
 (ns uberblick.core
-    (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
-    (:require [reagent.core :as reagent :refer [atom]]
-              [reagent.session :as session]
-              [secretary.core :as secretary :include-macros true]
-              [accountant.core :as accountant]
-
-              [goog.events :as events]
-              [goog.history.EventType :as EventType]
-
-              [alandipert.storage-atom :refer [local-storage]]
-              [cljs-http.client :as http]
-              [timothypratley.reanimated.core :as anim]
-              [cljs.core.async :refer [<! chan put! take! >! alts! timeout] :as async]
-              [markdown.core :refer [md->html] :as markdown])
-    (:import goog.History))
-
+  (:require [accountant.core :as accountant]
+            [cljs.core.async :as async :refer [<! >! chan take!]]
+            [cljs-http.client :as http]
+            [genome-cljs.core :as genome]
+            [goog.events :as events]
+            [goog.history.EventType :as EventType]
+            [markdown.core :as markdown]
+            [reagent.core :as reagent :refer [atom]]
+            [reagent.session :as session]
+            [secretary.core :as secretary :include-macros true])
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:import goog.History))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; State
@@ -26,50 +22,20 @@
 ;; Actions
 
 ;; Network
-(defn- extract-content [] (map #(-> % :body :Entries)))
 
-(defn <all-active-users []
-  (http/jsonp "https://genome.klick.com:443/api/User/Search"
-            {:channel (chan 1 (extract-content))}))
 
-(defn extract-userids [users] (map :UserID users))
+(enable-console-print!)
 
-(defn <users-details [userids]
-  (let [param-string (clojure.string/join "," userids)
-        out (chan)]
-    (go
-      (>! out (<! (http/jsonp "https://genome.klick.com:443/api/User.json"
-                              {:query-params {:UserIDs param-string}
-                               :channel (chan 1 (extract-content))})))
-      (async/close! out))
-    out))
-
-(defn add-full-picturepath
-  [user]
-  (update-in user [:PhotoPath] #(str "https://genome.klick.com:443" (clojure.string/replace %1 #" " "%20"))))
-
-(defn filter-in? [grouped-users]
-  (reduce-kv (fn [m k v]
-               (if (and k
-                          (.startsWith k "In"))
-                 (assoc m k v)
-                 m)) {} grouped-users))
 
 #_(go
-  (as-> [5702 4966] $
-    (<! (<users-details $))
-    (map add-full-picturepath $)
-    (prn $)))
-
-#_(go
-  (as-> (<! (<all-active-users)) $
-    (extract-userids $)
+  (as-> (<! (genome/<all-active-users)) $
+    (genome/extract-userids $)
     ;; (drop 200 $)
-    (take 200 $) ; chunk the data!
-    (<! (<users-details $))
-    (map add-full-picturepath $)
+    ;; (take 200 $) ; chunk the data!
+    (<! (genome/<users-details $))
+    (map genome/add-full-picturepath $)
     (group-by :KeyscanStatus $)
-    (filter-in? $)
+    (genome/filter-in? $)
     ;; (reset! people-atom $)
     (def people $)
   
@@ -77,37 +43,24 @@
 
 (defn dbg [thing] (prn thing) thing)
 
-(comment
-  BusinessUnitName: Department
-  WorkTeam: Your actual team
-  
-  )
+  ;; BusinessUnitName: Department
+  ;; WorkTeam: Your actual team
 
-(defn <get-all-active-klickster-profiles 
-  [userids]
-  (let [chunked-ids (partition-all 200 userids)
-        chunked-results (map <users-details chunked-ids)]
-    (->> chunked-results
-         (async/merge) ;put all results on a single channel
-         (async/reduce concat []) ;return a channel that'll end up having all results
-         )))
 
-(go
-  (as-> (<! (<all-active-users)) $
-    (extract-userids $)
-    ;; (drop 200 $)
-    (<! (<get-all-active-klickster-profiles $))
+#_(go
+  (as-> (<! (genome/<get-all-active-klickster-profiles)) $
     ((fn [everybody]
        (prn 'everybody)
        (prn (count everybody))
        (def fucking-everybody everybody)
        everybody) $)
-    (map add-full-picturepath $)
+    (map genome/add-full-picturepath $)
     (group-by :KeyscanStatus $)
-    (filter-in? $)
+    (genome/filter-in? $)
     ;; (reset! people-atom $)
     (def people $)
     (prn $)))
+
 
 ;; Todo:
 ;; partition-by :KeyscanStatus. Then display and add filters.
@@ -206,26 +159,4 @@
 
   (mount-root))
 
-  (defn return-stuff [stuff]
-    (let [c (chan)]
-      (go
-        (>! c stuff)
-        (async/close! c))
-      c))
-
-
-  (defn get-all []
-    (let [s1 (return-stuff :a)
-          s2 (return-stuff :b)
-          s3 (return-stuff :c)
-          stuffs [s1 s2 s3]]
- 
-      (->> stuffs
-           (async/merge)
-           (async/reduce conj [])))) 
-
-
-
-(go (prn (<! (get-all))))
-
-
+(prn (genome/gtest))

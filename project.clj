@@ -23,6 +23,7 @@
                  [cljs-http "0.1.37"]
                  [timothypratley/reanimated "0.1.1"]
                  [markdown-clj "0.9.80"] 
+                 [genome-cljs "0.1.0-SNAPSHOT"]
                  ]
 
   :plugins [[lein-environ "1.0.1"]
@@ -86,7 +87,7 @@
 
                    :env {:dev true}
 
-                   :cljsbuild {:builds {:app {:source-paths ["env/dev/cljs"]
+                   :cljsbuild {:builds {:app {:source-paths ["env/dev/cljs" "checkouts/genome-cljs/src"]
                                               :compiler {:main "uberblick.dev"
                                                          :source-map true}}}}}
 
