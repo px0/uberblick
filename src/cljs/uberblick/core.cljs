@@ -10,6 +10,7 @@
             [reagent.session :as session]
             [secretary.core :as secretary :include-macros true]
             [clojure.walk :as walk]
+            [cljs.pprint :as pprint]
 
             [cljs.tools.reader :refer [read-string]]
             [cljs.js :refer [empty-state eval js-eval]])
@@ -20,7 +21,9 @@
 ;; State
 
 (defonce people-atom (atom []))
-
+(defonce filters (atom ["(.startsWith :Name \"Ma\")"]))
+(def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
+; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions
@@ -53,34 +56,63 @@
         (fn [result] result)))
 
 
+;; Todo: Add ":my-bla"
 (defn create-filter-fn 
-  "creates a filter function thing"
-  [keys expr]
+  "Creates a filter function of the form:
+  (fn [user] expr-as-fn)
+  from a string 'expr' with one twist: 
+  If a keyword is part of the passed-in 'keys' vector then this keyword will be transformed into a lookup of the 'user' binding.
+  For instance, calling 
+  (create-filter-fn [:Name]  \"(.startsWith :Name \"Max\")\")
+  will result in a function like
+  (fn [user] (.startsWith (:name user) \"Max\"))
+
+  This can be later used to filter genome users by arbitrary criteria at runtime 
+  "
+  [thekeys expr]
   (let [my-user (gensym "user")
         replace-where-appropriate (fn [sym]
                                     (cond
                                       (not (keyword? sym)) sym
-                                      (some #{sym} keys) `(~sym ~my-user)
+                                      (some #{sym} thekeys) `(~sym ~my-user)
                                       :else sym))]
     (->>
      (read-string expr)
      (walk/postwalk replace-where-appropriate ,,,)
      ((fn [new-expr]
-        `(fn [~my-user] ~new-expr)) ,,,))))
+         `(fn [~my-user] ~new-expr))) 
+     (eval-str))))
 
 
-(def exp "(.startsWith :Name \"Max\")")
-(defn try-filter []
-  (= '({:Name "Maximilian"}) 
-     (filter
-      (create-filter-fn [:Name] exp)
-      [{:Name "Bob"} {:Name "Maximilian"}]))
-  )
 
 ;; Todo:
 ;; partition-by :KeyscanStatus. Then display and add filters.
 ;; add a <users-details test data set monday morning
 ;; partition the users by 200
+
+(defn filtered-people-atom []
+  (if-not (empty? @filters)
+    (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
+      (for [[floor people] @people-atom]
+        [floor (filter (apply every-pred my-filters) people)]))
+    @people-atom))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; filter functions
+(defn add-filter 
+  [filter-str]
+  (swap! filters conj filter-str))
+
+(defn vec-remove
+  "remove elem in coll"
+  [coll pos]
+  (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
+
+(defn remove-filter 
+  [idx]
+  (when @filters
+    (reset! filters
+            (vec-remove @filters idx))))
 
 
 ;; -------------------------
@@ -94,7 +126,8 @@
                   :height 100
                   :background-image (str "url(" (:PhotoPath user) ")")
                   :background-size "100% auto"
-                  :background-repeat :no-repeat}}]
+                  :background-repeat :no-repeat}
+          :on-click #(.open js/window (genome/profile-link user))}]
    [:span {:style {:width "100%"
                    :font-size 16}}
     (:FirstName user)]])
@@ -112,7 +145,7 @@
 
 (defn home-page []
   [:div
-   (for [[floor people] @people-atom]
+   (for [[floor people] (filtered-people-atom)]
     ^{:key floor} [Floor floor people])])
 
 (defn About
@@ -131,6 +164,47 @@
 
 (defn about [] (About))
 
+(defn prettify [data]
+  (with-out-str (cljs.pprint/pprint data)))
+
+(defn Instructions 
+  []
+  (let [current-profile (atom "Nothing here")]
+    (go
+      (let [profile (<! (genome/<current-user-profile))]
+        (prn 'current-profile '=> profile)
+        (reset! current-profile (-> profile prettify ))
+        ))
+    (fn []
+      [:div
+       [:p "Here is a list of all available attributes:"
+        [:p (str all-profile-keys)]
+        "And for the record, here is your profile:"]
+       [:pre @current-profile]])))
+
+(defn New-Filter-Field []
+  (let [inputatm (atom "")]
+    [:div.row
+     [:input.col.s9.offset-s1 {:type "text"
+                      :placeholder "Add a new filter"
+                      :on-change #(reset! inputatm (-> % .-target .-value))}]
+     [:button.col.s1.btn {:on-click #(add-filter @inputatm)} "Add"]]))
+
+(defn Current-Filters []
+  [:ul.collection
+   (map-indexed (fn [idx filter]
+                  ^{:key filter}
+                  ;; [:li (str filter)]
+                  [:li.collection-item (str filter) [:a.secondary-content {:on-click #(remove-filter idx)} [:i.material-icons "delete"]]]) @filters)])
+
+(defn Filters []
+  [:div
+   [:h3 "Filters"]
+   [Current-Filters]
+   [New-Filter-Field]
+   [:hr]
+   [:h3 "References"]
+   [Instructions]])
 
 (defn current-page []
   [:div [(session/get :current-page)]])
@@ -146,6 +220,8 @@
 (secretary/defroute "/about" []
   (session/put! :current-page #'about))
 
+(secretary/defroute "/filters" []
+  (session/put! :current-page #'Filters))
 ;; -------------------------
 ;; History
 ;; must be called after routes have been defined
