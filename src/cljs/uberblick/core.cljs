@@ -8,7 +8,11 @@
             [markdown.core :as markdown]
             [reagent.core :as reagent :refer [atom]]
             [reagent.session :as session]
-            [secretary.core :as secretary :include-macros true])
+            [secretary.core :as secretary :include-macros true]
+            [clojure.walk :as walk]
+
+            [cljs.tools.reader :refer [read-string]]
+            [cljs.js :refer [empty-state eval js-eval]])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:import goog.History))
 
@@ -21,46 +25,57 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Actions
 
+
 ;; Network
 
-
 (enable-console-print!)
-
-
-#_(go
-  (as-> (<! (genome/<all-active-users)) $
-    (genome/extract-userids $)
-    ;; (drop 200 $)
-    ;; (take 200 $) ; chunk the data!
-    (<! (genome/<users-details $))
-    (map genome/add-full-picturepath $)
-    (group-by :KeyscanStatus $)
-    (genome/filter-in? $)
-    ;; (reset! people-atom $)
-    (def people $)
-  
-    (prn $)))
-
-(defn dbg [thing] (prn thing) thing)
 
   ;; BusinessUnitName: Department
   ;; WorkTeam: Your actual team
 
 
-#_(go
+(go
   (as-> (<! (genome/<get-all-active-klickster-profiles)) $
-    ((fn [everybody]
-       (prn 'everybody)
-       (prn (count everybody))
-       (def fucking-everybody everybody)
-       everybody) $)
-    (map genome/add-full-picturepath $)
     (group-by :KeyscanStatus $)
     (genome/filter-in? $)
-    ;; (reset! people-atom $)
-    (def people $)
-    (prn $)))
+    (reset! people-atom $)
+    ;; (def people $)
+    ))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; filter macro test
+(defn eval-str [s]
+  (eval (empty-state)
+        s;(read-string s)
+        {:eval       js-eval
+         :source-map true
+         :context    :expr}
+        (fn [result] result)))
+
+
+(defn create-filter-fn 
+  "creates a filter function thing"
+  [keys expr]
+  (let [my-user (gensym "user")
+        replace-where-appropriate (fn [sym]
+                                    (cond
+                                      (not (keyword? sym)) sym
+                                      (some #{sym} keys) `(~sym ~my-user)
+                                      :else sym))]
+    (->>
+     (read-string expr)
+     (walk/postwalk replace-where-appropriate ,,,)
+     ((fn [new-expr]
+        `(fn [~my-user] ~new-expr)) ,,,))))
+
+
+(def exp "(.startsWith :Name \"Max\")")
+(defn try-filter []
+  (= '({:Name "Maximilian"}) 
+     (filter
+      (create-filter-fn [:Name] exp)
+      [{:Name "Bob"} {:Name "Maximilian"}]))
+  )
 
 ;; Todo:
 ;; partition-by :KeyscanStatus. Then display and add filters.
@@ -72,8 +87,7 @@
 ;; Views
 
 (defn PersonCard [user]
-  [:div.z-depth-1 {:key (:UserID user)
-                   :style {:max-width 100
+  [:div.z-depth-1 {:style {:max-width 100
                           :margin 5 
                            :text-align :center}}
    [:div {:style {:width 100
@@ -86,20 +100,20 @@
     (:FirstName user)]])
 
 (defn Floor [title users]
-  [:div
+  [:div 
    [:h3 title]
    [:hr]
    [:div {:style {:display :flex
                   :flex-direction :row
                   :flex-wrap :wrap}}
     (for [u users]
-      [PersonCard  u])
-    [:br]]])
+       ^{:key (:UserID u)} [PersonCard u])
+  ]])
 
 (defn home-page []
   [:div
-   (for [[f p] @people-atom]
-     [Floor f p])])
+   (for [[floor people] @people-atom]
+    ^{:key floor} [Floor floor people])])
 
 (defn About
 "Take the readme, render it to HTML, and set it as the element!"
@@ -155,8 +169,6 @@
   (comment
     (accountant/configure-navigation!)
     (accountant/dispatch-current!))
-    (hook-browser-navigation!)
+  (hook-browser-navigation!)
 
   (mount-root))
-
-(prn (genome/gtest))
