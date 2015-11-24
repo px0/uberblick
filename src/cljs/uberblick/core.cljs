@@ -21,7 +21,15 @@
 ;; State
 
 (defonce people-atom (atom []))
-(defonce filters (atom ["(.startsWith :Name \"Ma\")"]))
+(defonce filters (atom [
+                       ;; "(.startsWith :Name \"M\")" 
+                        ;; (= :LaborRoleID "APPLDEVL")
+                        ;; (> (.indexOf :Title "Quality") -1)
+
+                        ]))
+;;examples
+;; "(.startsWith :Name \"Max\")" 
+
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
 ; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
 
@@ -39,8 +47,6 @@
 
 (go
   (as-> (<! (genome/<get-all-active-klickster-profiles)) $
-    (group-by :KeyscanStatus $)
-    (genome/filter-in? $)
     (reset! people-atom $)
     ;; (def people $)
     ))
@@ -54,7 +60,6 @@
          :source-map true
          :context    :expr}
         (fn [result] result)))
-
 
 ;; Todo: Add ":my-bla"
 (defn create-filter-fn 
@@ -71,17 +76,19 @@
   "
   [thekeys expr]
   (let [my-user (gensym "user")
+        un-myify (fn [kw] (-> kw str (.replace ":-my" "") keyword))
         replace-where-appropriate (fn [sym]
                                     (cond
                                       (not (keyword? sym)) sym
-                                      (some #{sym} thekeys) `(~sym ~my-user)
+                                      (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) "")
                                       :else sym))]
     (->>
-     (read-string expr)
+     (read-string expr ,,,)
      (walk/postwalk replace-where-appropriate ,,,)
      ((fn [new-expr]
-         `(fn [~my-user] ~new-expr))) 
-     (eval-str))))
+        `(fn [~my-user] ~new-expr)) ,,,,) 
+     ((fn [expr] (prn 'thekeys expr) expr))
+     (eval-str ,,,))))
 
 
 
@@ -90,12 +97,20 @@
 ;; add a <users-details test data set monday morning
 ;; partition the users by 200
 
-(defn filtered-people-atom []
-  (if-not (empty? @filters)
-    (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
-      (for [[floor people] @people-atom]
-        [floor (filter (apply every-pred my-filters) people)]))
-    @people-atom))
+(defn filter-people [people]
+  (let [all-the-people (if-not (empty? @filters)
+                         (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
+                           (filter (apply every-pred my-filters) people))
+                         people)
+        nil->Out (fn [by-floors]
+                 (into {}
+                       (for [[k v] by-floors]
+                         [(if (nil? k) "Out" k) v])))]
+    (->> all-the-people
+             (group-by :KeyscanStatus)
+             (nil->Out)  ; mark the OUT ones for better processing!
+             (genome/filter-in?)
+             )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter functions
@@ -145,7 +160,7 @@
 
 (defn home-page []
   [:div
-   (for [[floor people] (filtered-people-atom)]
+   (for [[floor people] (filter-people @people-atom)]
     ^{:key floor} [Floor floor people])])
 
 (defn About
@@ -171,9 +186,10 @@
   []
   (let [current-profile (atom "Nothing here")]
     (go
-      (let [profile (<! (genome/<current-user-profile))]
-        (prn 'current-profile '=> profile)
-        (reset! current-profile (-> profile prettify ))
+      (let [profile (<! (genome/<current-user-profile))
+            actual-profile (filter #(= (:UserID profile) (:UserID %)) @people-atom ) ;yeah so User/Current actually gives you different data back than just /User....
+            ]
+        (reset! current-profile (-> actual-profile prettify ))
         ))
     (fn []
       [:div
@@ -188,7 +204,8 @@
      [:input.col.s9.offset-s1 {:type "text"
                       :placeholder "Add a new filter"
                       :on-change #(reset! inputatm (-> % .-target .-value))}]
-     [:button.col.s1.btn {:on-click #(add-filter @inputatm)} "Add"]]))
+     [:button.col.s1.btn {:on-click #(do (add-filter @inputatm)
+                                         (reset! inputatm ""))} "Add"]]))
 
 (defn Current-Filters []
   [:ul.collection
