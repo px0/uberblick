@@ -160,8 +160,11 @@
 
 (defn home-page []
   [:div
-   (for [[floor people] (filter-people @people-atom)]
-    ^{:key floor} [Floor floor people])])
+   (let [people (filter-people @people-atom)]
+     (if (> (count people) 0)
+       (for [[floor people] people]
+         ^{:key floor} [Floor floor people])
+       [:h2 "No one that fits your filters is in!"]))])
 
 (defn About
 "Take the readme, render it to HTML, and set it as the element!"
@@ -186,10 +189,8 @@
   []
   (let [current-profile (atom "Nothing here")]
     (go
-      (let [profile (<! (genome/<current-user-profile))
-            actual-profile (filter #(= (:UserID profile) (:UserID %)) @people-atom ) ;yeah so User/Current actually gives you different data back than just /User....
-            ]
-        (reset! current-profile (-> actual-profile prettify ))
+      (let [profile (<! (genome/<current-user-profile))]
+        (reset! current-profile (-> profile prettify ))
         ))
     (fn []
       [:div
