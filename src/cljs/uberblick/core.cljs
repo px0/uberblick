@@ -1,6 +1,6 @@
 (ns uberblick.core
   (:require [accountant.core :as accountant]
-            [cljs.core.async :as async :refer [<! >! chan take!]]
+            [cljs.core.async :as async :refer [<! >! chan take! timeout]]
             [cljs-http.client :as http]
             [genome-cljs.core :as genome]
             [goog.events :as events]
@@ -14,7 +14,7 @@
 
             [cljs.tools.reader :refer [read-string]]
             [cljs.js :refer [empty-state eval js-eval]])
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:import goog.History))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -40,10 +40,14 @@
   ;; WorkTeam: Your actual team
 
 
-(go
-  (as-> (<! (genome/<get-all-active-klickster-profiles)) $
-    (reset! people-atom $)
-    ))
+(defn set-people-to-all-active-klicksters [atm interval]
+  (go-loop []
+    (reset! atm (<! (genome/<get-all-active-klickster-profiles)))
+    (println "Downloaded" (count @atm) "Klicksters") 
+    (<! (timeout interval))
+    (recur)))
+
+(set-people-to-all-active-klicksters people-atom (* 5 60 1000))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter macro test
@@ -108,9 +112,9 @@
                            (println "Error while filtering")
                            (prn e)))
         nil->Out (fn [by-floors]
-                 (into {}
-                       (for [[k v] by-floors]
-                         [(if (nil? k) "Out" k) v])))]
+                   (into {}
+                         (for [[k v] by-floors]
+                           [(if (nil? k) "Out" k) v])))]
     (some->> all-the-people
              (group-by :KeyscanStatus)
              (nil->Out)  ; mark the OUT ones for better processing!
@@ -164,13 +168,17 @@
   ]])
 
 (defn home-page []
-  [:div
-   (let [people (filter-people @people-atom)]
-     (cond
-       (nil? people) [:h2 "There has been an error while applying your filters!"]
-       (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
-       :else (for [[floor people] people]
-               ^{:key floor} [Floor floor people])))])
+  (try
+    [:div
+     (let [people (filter-people @people-atom)]
+       (cond
+         (nil? people) [:h2 "There has been an error while applying your filters!"]
+         (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
+         :else (for [[floor people] people]
+                 ^{:key floor} [Floor floor people])))]
+    (catch :default e
+      (prn e)
+      [:h2 "There has been an error while applying your filters!"])))
 
 (defn About
 "Take the readme, render it to HTML, and set it as the element!"
@@ -247,6 +255,8 @@
                   "(startsWith? :FirstName \"M\")" 
                   "(= :LaborRoleID \"APPLDEVL\")"
                   "(substring? :Title \"Quality\")"
+                  "(= :KeyscanStatus \"In 4th Flr N\")"
+                  "(or (startsWith? :FirstName \"M\") (substring? :Title \"Edit\"))"
                   ]]
        [:hr]
        [:h3 "References"]
