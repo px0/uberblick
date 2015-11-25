@@ -54,12 +54,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter macro test
 (defn eval-str [s]
-  (eval (empty-state)
-        s;(read-string s)
-        {:eval       js-eval
-         :source-map true
-         :context    :expr}
-        (fn [result] result)))
+  (try
+    (eval (empty-state)
+          s;(read-string s)
+          {:eval       js-eval
+           :source-map true
+           :context    :expr}
+          (fn [result] result))
+    (catch :default e
+      (println "Error while evaluating string")
+      (prn e))))
 
 ;; Todo: Add ":my-bla"
 (defn create-filter-fn 
@@ -82,8 +86,12 @@
                                       (not (keyword? sym)) sym
                                       (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) "")
                                       :else sym))]
-    (->>
-     (read-string expr ,,,)
+    (some->>
+     (try
+       (read-string expr ,,,)
+       (catch :default e
+         (prn "Error while reading string")
+         (prn e)))
      (walk/postwalk replace-where-appropriate ,,,)
      ((fn [new-expr]
         `(fn [~my-user] ~new-expr)) ,,,,) 
@@ -98,15 +106,19 @@
 ;; partition the users by 200
 
 (defn filter-people [people]
-  (let [all-the-people (if-not (empty? @filters)
-                         (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
-                           (filter (apply every-pred my-filters) people))
-                         people)
+  (let [all-the-people (try
+                         (if-not (empty? @filters)
+                           (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
+                             (filter (apply every-pred my-filters) people))
+                           people)
+                         (catch :default e
+                           (println "Error while filtering")
+                           (prn e)))
         nil->Out (fn [by-floors]
                  (into {}
                        (for [[k v] by-floors]
                          [(if (nil? k) "Out" k) v])))]
-    (->> all-the-people
+    (some->> all-the-people
              (group-by :KeyscanStatus)
              (nil->Out)  ; mark the OUT ones for better processing!
              (genome/filter-in?)
@@ -161,10 +173,11 @@
 (defn home-page []
   [:div
    (let [people (filter-people @people-atom)]
-     (if (> (count people) 0)
-       (for [[floor people] people]
-         ^{:key floor} [Floor floor people])
-       [:h2 "No one that fits your filters is in!"]))])
+     (cond
+       (nil? people) [:h2 "There has been an error while applying your filters!"]
+       (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
+       :else (for [[floor people] people]
+               ^{:key floor} [Floor floor people])))])
 
 (defn About
 "Take the readme, render it to HTML, and set it as the element!"
