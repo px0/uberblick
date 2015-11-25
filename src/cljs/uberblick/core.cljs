@@ -27,8 +27,6 @@
                         ;; (> (.indexOf :Title "Quality") -1)
 
                         ]))
-;;examples
-;; "(.startsWith :Name \"Max\")" 
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
 ; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
@@ -48,7 +46,6 @@
 (go
   (as-> (<! (genome/<get-all-active-klickster-profiles)) $
     (reset! people-atom $)
-    ;; (def people $)
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -56,7 +53,7 @@
 (defn eval-str [s]
   (try
     (eval (empty-state)
-          s;(read-string s)
+          s
           {:eval       js-eval
            :source-map true
            :context    :expr}
@@ -86,17 +83,16 @@
                                       (not (keyword? sym)) sym
                                       (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) "")
                                       :else sym))]
-    (some->>
-     (try
-       (read-string expr ,,,)
-       (catch :default e
-         (prn "Error while reading string")
-         (prn e)))
-     (walk/postwalk replace-where-appropriate ,,,)
-     ((fn [new-expr]
-        `(fn [~my-user] ~new-expr)) ,,,,) 
-     ((fn [expr] (prn 'thekeys expr) expr))
-     (eval-str ,,,))))
+    (some->>  expr
+              (read-string)
+              (walk/postwalk replace-where-appropriate ,,,)
+              ((fn [new-expr]
+                 `(fn [~my-user]
+                    (let [~'substring? (fn [~'string ~'subsstr] (> (.indexOf ~'string ~'subsstr) -1))
+                          ~'startsWith? (fn [~'string ~'substr] (.startsWith ~'string ~'substr))]
+                      ~new-expr))) ,,,,) 
+              ((fn [expr] (prn expr) expr))
+              (eval-str ,,,))))
 
 
 
