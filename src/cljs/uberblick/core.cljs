@@ -22,10 +22,7 @@
 
 (defonce people-atom (atom []))
 (defonce filters (atom [
-                       ;; "(.startsWith :Name \"M\")" 
-                        ;; (= :LaborRoleID "APPLDEVL")
-                        ;; (> (.indexOf :Title "Quality") -1)
-
+              
                         ]))
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
@@ -224,11 +221,25 @@
                   ;; [:li (str filter)]
                   [:li.collection-item (str filter) [:a.secondary-content {:on-click #(remove-filter idx)} [:i.material-icons "delete"]]]) @filters)])
 
+(defn Examples [filter-examples]
+  [:ul.collection
+   (map-indexed (fn [idx filter]
+                  ^{:key filter}
+                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter filter)} [:i.material-icons "add"]]]) filter-examples)])
+
 (defn Filters []
   [:div
    [:h3 "Filters"]
    [Current-Filters]
    [New-Filter-Field]
+   [:hr]
+   [:h3 "Examples"]
+   [:p "Here are some example filters to get you started!"]
+   [Examples [
+              "(startsWith? :FirstName \"M\")" 
+              "(= :LaborRoleID \"APPLDEVL\")"
+              "(substring? :Title \"Quality\")"
+              ]]
    [:hr]
    [:h3 "References"]
    [Instructions]])
