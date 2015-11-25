@@ -78,7 +78,7 @@
         replace-where-appropriate (fn [sym]
                                     (cond
                                       (not (keyword? sym)) sym
-                                      (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) "")
+                                      (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) [])
                                       :else sym))]
     (some->>  expr
               (read-string)
@@ -196,8 +196,7 @@
   (let [current-profile (atom "Nothing here")]
     (go
       (let [profile (<! (genome/<current-user-profile))]
-        (reset! current-profile (-> profile prettify ))
-        ))
+        (reset! current-profile (-> profile prettify ))))
     (fn []
       [:div
        [:p "Here is a list of all available attributes:"
@@ -205,44 +204,53 @@
         "And for the record, here is your profile:"]
        [:pre @current-profile]])))
 
-(defn New-Filter-Field []
-  (let [inputatm (atom "")]
-    [:div.row
-     [:input.col.s9.offset-s1 {:type "text"
-                      :placeholder "Add a new filter"
-                      :on-change #(reset! inputatm (-> % .-target .-value))}]
-     [:button.col.s1.btn {:on-click #(do (add-filter @inputatm)
-                                         (reset! inputatm ""))} "Add"]]))
+(defn New-Filter-Field [inputatm]
+  [:div.row
+   [:input.col.s9.offset-s1 {:type "text"
+                             :placeholder "Add a new filter"
+                             :value @inputatm
+                             :on-change #(reset! inputatm (-> % .-target .-value))}]
+   [:button.col.s1.btn {:on-click #(do (add-filter @inputatm)
+                                       (reset! inputatm ""))} "Add"]])
 
-(defn Current-Filters []
+(defn Current-Filters [inputatm]
   [:ul.collection
    (map-indexed (fn [idx filter]
                   ^{:key filter}
-                  ;; [:li (str filter)]
-                  [:li.collection-item (str filter) [:a.secondary-content {:on-click #(remove-filter idx)} [:i.material-icons "delete"]]]) @filters)])
+                  [:li.collection-item (str filter)
+                   [:div.secondary-content
+                    [:a {:on-click #(do
+                                      (prn filter)
+                                      (reset! inputatm (str filter))
+                                      (remove-filter idx))}
+                     [:i.material-icons "edit"]]
+                    [:a {:on-click #(remove-filter idx)} [:i.material-icons "delete"]]
+                    ]]) @filters)])
 
 (defn Examples [filter-examples]
   [:ul.collection
    (map-indexed (fn [idx filter]
                   ^{:key filter}
-                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter filter)} [:i.material-icons "add"]]]) filter-examples)])
+                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter filter)} [:i.material-icons "playlist_add"]]]) filter-examples)])
 
 (defn Filters []
-  [:div
-   [:h3 "Filters"]
-   [Current-Filters]
-   [New-Filter-Field]
-   [:hr]
-   [:h3 "Examples"]
-   [:p "Here are some example filters to get you started!"]
-   [Examples [
-              "(startsWith? :FirstName \"M\")" 
-              "(= :LaborRoleID \"APPLDEVL\")"
-              "(substring? :Title \"Quality\")"
-              ]]
-   [:hr]
-   [:h3 "References"]
-   [Instructions]])
+  (let [inputatm (atom "")]
+    (fn []
+      [:div
+       [:h3 "Filters"]
+       [Current-Filters inputatm]
+       [New-Filter-Field inputatm]
+       [:hr]
+       [:h3 "Examples"]
+       [:p "Here are some example filters to get you started!"]
+       [Examples [
+                  "(startsWith? :FirstName \"M\")" 
+                  "(= :LaborRoleID \"APPLDEVL\")"
+                  "(substring? :Title \"Quality\")"
+                  ]]
+       [:hr]
+       [:h3 "References"]
+       [Instructions]])))
 
 (defn current-page []
   [:div [(session/get :current-page)]])
