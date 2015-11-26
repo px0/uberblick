@@ -22,7 +22,7 @@
 
 (defonce people-atom (atom []))
 (defonce filters (atom [
-              
+             "(startsWith? :KeyscanStatus \"In\")" 
                         ]))
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
@@ -97,7 +97,7 @@
         replace-where-appropriate (fn [sym]
                                     (cond
                                       (not (keyword? sym)) sym
-                                      (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) [])
+                                      (some #{sym} thekeys) `(if (~sym ~my-user) (~sym ~my-user) "")
                                       :else sym))]
     (some->>  expr
               (read-string)
@@ -133,8 +133,8 @@
     (some->> all-the-people
              (group-by :KeyscanStatus)
              (nil->Out)  ; mark the OUT ones for better processing!
-             (genome/filter-in?)
              )))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter functions
@@ -283,6 +283,7 @@
                                   "(>= :UserID $UserID)"
                                   "(= :KeyscanStatus \"In 4th Flr N\")"
                                   "(or (startsWith? :FirstName \"M\") (substring? :Title \"Edit\"))"
+                                  "(startsWith? :KeyscanStatus \"In\")"
                   ]]
        [:hr]
        [:h3 "References"]
