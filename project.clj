@@ -52,7 +52,7 @@
     {"resources/public/css/site.min.css" "resources/public/css/site.css"}}
 
   :cljsbuild {:builds {:app {:source-paths ["src/cljs" "src/cljc"]
-                             :compiler {:output-to "target/cljsbuild/public/js/app.js"
+                             :compiler {:output-to "resources/public/js/app.js"
                                         :output-dir "target/cljsbuild/public/js/out"
                                         :asset-path   "js/out"
                                         :optimizations :none
@@ -80,7 +80,7 @@
                               :server-port 3449
                               :nrepl-port 7002
                               :nrepl-middleware ["cemerick.piggieback/wrap-cljs-repl"
-                                                     "cider.nrepl/cider-middleware"
+                                                 "cider.nrepl/cider-middleware"
                                                  "refactor-nrepl.middleware/wrap-refactor"
                                                  ]
                               :css-dirs ["resources/public/css"]
@@ -107,5 +107,6 @@
                     :cljsbuild {:builds {:app
                                             {:source-paths ["env/prod/cljs"]
                                              :compiler
-                                             {:optimizations :advanced
+                                             {:optimizations :simple
+                                              :verbose true
                                               :pretty-print false}}}}}})
