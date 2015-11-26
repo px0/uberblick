@@ -129,10 +129,11 @@
         nil->Out (fn [by-floors]
                    (into {}
                          (for [[k v] by-floors]
-                           [(if (nil? k) "Out" k) v])))]
+                           [(if (nil? k) "Out!" k) v])))]
     (some->> all-the-people
              (group-by :KeyscanStatus)
              (nil->Out)  ; mark the OUT ones for better processing!
+             (into (sorted-map)) ; sort
              )))
 
 
