@@ -63,7 +63,23 @@
       (println "Error while evaluating string")
       (prn e))))
 
-;; Todo: Add ":my-bla"
+(defn replace-current-user-symbols
+  "replaces keywords that are given in the form $keyword to the value of lookups to the given profile, e.g.
+  the string \"(= :UserID $UserID)\" with the profile including {:UserID 123} will result in the string \"(= :UserID 123)\" "
+  [profile expr]
+  (let [$->kw (fn [kw] (->> kw str rest (apply str) keyword ))
+        $? (fn [kw] (= \$ (first (str kw))))
+        transform$ (fn [a] (if ($? a)
+                            (get profile ($->kw a))
+                            a))]
+    (try
+      (some->> expr
+               (read-string)
+               (walk/postwalk transform$)
+               str)
+      (catch :default e
+        (prn 'replace-current-user-symbols e)))))
+
 (defn create-filter-fn 
   "Creates a filter function of the form:
   (fn [user] expr-as-fn)
@@ -78,7 +94,6 @@
   "
   [thekeys expr]
   (let [my-user (gensym "user")
-        un-myify (fn [kw] (-> kw str (.replace ":-my" "") keyword))
         replace-where-appropriate (fn [sym]
                                     (cond
                                       (not (keyword? sym)) sym
@@ -124,8 +139,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter functions
 (defn add-filter 
-  [filter-str]
-  (swap! filters conj filter-str))
+  [profile filter-str]
+  (let [transformed-filter (replace-current-user-symbols profile filter-str)]
+    (if transformed-filter
+      (do
+        (swap! filters conj transformed-filter)
+        transformed-filter)
+      nil)))
 
 (defn vec-remove
   "remove elem in coll"
@@ -200,26 +220,25 @@
   (with-out-str (cljs.pprint/pprint data)))
 
 (defn Instructions 
-  []
-  (let [current-profile (atom "Nothing here")]
-    (go
-      (let [profile (<! (genome/<current-user-profile))]
-        (reset! current-profile (-> profile prettify ))))
-    (fn []
-      [:div
-       [:p "Here is a list of all available attributes:"
-        [:p (str all-profile-keys)]
-        "And for the record, here is your profile:"]
-       [:pre @current-profile]])))
+  [current-profile]
+  [:div
+   [:p "Here is a list of all available attributes:"
+    [:p (str all-profile-keys)]
+    "And for the record, here is your profile:"]
+   [:pre @current-profile]])
 
-(defn New-Filter-Field [inputatm]
+(defn New-Filter-Field [current-profile inputatm]
   [:div.row
    [:input.col.s9.offset-s1 {:type "text"
                              :placeholder "Add a new filter"
                              :value @inputatm
                              :on-change #(reset! inputatm (-> % .-target .-value))}]
-   [:button.col.s1.btn {:on-click #(do (add-filter @inputatm)
-                                       (reset! inputatm ""))} "Add"]])
+   [:button.col.s1.btn {:on-click #(do
+                                     (let [success (add-filter @current-profile @inputatm)]
+                                       (if success
+                                         (reset! inputatm "")
+                                         (js/alert "There has been a problem with your filter!")))
+                                     )} "Add"]])
 
 (defn Current-Filters [inputatm]
   [:ul.collection
@@ -235,32 +254,39 @@
                     [:a {:on-click #(remove-filter idx)} [:i.material-icons "delete"]]
                     ]]) @filters)])
 
-(defn Examples [filter-examples]
+(defn Examples [current-profile filter-examples]
   [:ul.collection
    (map-indexed (fn [idx filter]
                   ^{:key filter}
-                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter filter)} [:i.material-icons "playlist_add"]]]) filter-examples)])
+                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter @current-profile filter)} [:i.material-icons "playlist_add"]]]) filter-examples)])
 
 (defn Filters []
-  (let [inputatm (atom "")]
+  (let [inputatm (atom "")
+        current-profile (atom nil)
+        current-profile-str (atom "")]
+    (go
+      (let [profile (reset! current-profile (<! (genome/<current-user-profile)))]
+        (reset! current-profile-str (-> profile prettify ))))
     (fn []
       [:div
        [:h3 "Filters"]
        [Current-Filters inputatm]
-       [New-Filter-Field inputatm]
+       [New-Filter-Field current-profile inputatm]
        [:hr]
        [:h3 "Examples"]
        [:p "Here are some example filters to get you started!"]
-       [Examples [
-                  "(startsWith? :FirstName \"M\")" 
-                  "(= :LaborRoleID \"APPLDEVL\")"
-                  "(substring? :Title \"Quality\")"
-                  "(= :KeyscanStatus \"In 4th Flr N\")"
-                  "(or (startsWith? :FirstName \"M\") (substring? :Title \"Edit\"))"
+       [Examples current-profile [
+                                  "(startsWith? :FirstName \"M\")" 
+                                  "(= :LaborRoleID \"APPLDEVL\")"
+                                  "(= :WorkTeamID $WorkTeamID)"
+                                  "(substring? :Title \"Quality\")"
+                                  "(>= :UserID $UserID)"
+                                  "(= :KeyscanStatus \"In 4th Flr N\")"
+                                  "(or (startsWith? :FirstName \"M\") (substring? :Title \"Edit\"))"
                   ]]
        [:hr]
        [:h3 "References"]
-       [Instructions]])))
+       [Instructions current-profile-str]])))
 
 (defn current-page []
   [:div [(session/get :current-page)]])
