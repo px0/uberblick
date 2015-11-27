@@ -11,7 +11,7 @@
             [secretary.core :as secretary :include-macros true]
             [clojure.walk :as walk]
             [cljs.pprint :as pprint]
-
+            [alandipert.storage-atom :refer [local-storage]]
             [cljs.tools.reader :refer [read-string]]
             [cljs.js :refer [empty-state eval js-eval]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
@@ -20,10 +20,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; State
 
-(defonce people-atom (atom []))
-(defonce filters (atom [
-             "(startsWith? :KeyscanStatus \"In\")" 
-                        ]))
+(defonce people-atom (local-storage (atom []) :people))
+(defonce filters (local-storage (atom ["(startsWith? :KeyscanStatus \"In\")"]) :filters))
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
 ; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
@@ -42,12 +40,16 @@
 
 (defn set-people-to-all-active-klicksters [atm interval]
   (go-loop []
-    (reset! atm (<! (genome/<get-all-active-klickster-profiles)))
-    (println "Downloaded" (count @atm) "Klicksters") 
+    (let [people (<! (genome/<get-all-active-klickster-profiles))]
+      (when (> (count people) 0)
+        (do
+          (reset! atm people)
+          (println "Downloaded" (count @atm) "Klicksters")))) 
     (<! (timeout interval))
     (recur)))
 
 (set-people-to-all-active-klicksters people-atom (* 5 60 1000))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filter macro test
@@ -109,13 +111,6 @@
                       ~new-expr))) ,,,,) 
               ((fn [expr] (prn expr) expr))
               (eval-str ,,,))))
-
-
-
-;; Todo:
-;; partition-by :KeyscanStatus. Then display and add filters.
-;; add a <users-details test data set monday morning
-;; partition the users by 200
 
 (defn filter-people [people]
   (let [all-the-people (try
@@ -179,7 +174,7 @@
 
 (defn Floor [title users]
   [:div 
-   [:h3 title]
+   [:h3 title " (" (str (count users)) ")"]
    [:hr]
    [:div {:style {:display :flex
                   :flex-direction :row
