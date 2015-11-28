@@ -158,10 +158,14 @@
 ;; -------------------------
 ;; Views
 
+(defn prettify [data]
+  (with-out-str (cljs.pprint/pprint data)))
+
 (defn PersonCard [user]
-  [:div.z-depth-1 {:style {:max-width 100
-                          :margin 5 
-                           :text-align :center}}
+  [:div.z-depth-1.tooltip {:style {:max-width 100
+                                   :margin 5 
+                                   :text-align :center}}
+   [:span.tooltiptext [:pre {:style {:text-align :left}} (prettify user)]]
    [:div {:style {:width 100
                   :height 100
                   :background-image (str "url(" (:PhotoPath user) ")")
@@ -212,8 +216,7 @@
 
 (defn about [] (About))
 
-(defn prettify [data]
-  (with-out-str (cljs.pprint/pprint data)))
+
 
 (defn Instructions 
   [current-profile]
