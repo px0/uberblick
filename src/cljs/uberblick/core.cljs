@@ -21,7 +21,7 @@
 ;; State
 
 (defonce people-atom (local-storage (atom []) :people))
-(defonce filters (local-storage (atom ["(startsWith? :KeyscanStatus \"In\")"]) :filters))
+(defonce filters (local-storage (atom ["(starts-with? :KeyscanStatus \"In\")"]) :filters))
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
 ; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
@@ -107,29 +107,27 @@
               ((fn [new-expr]
                  `(fn [~my-user]
                     (let [~'substring? (fn [~'string ~'subsstr] (> (.indexOf ~'string ~'subsstr) -1))
-                          ~'startsWith? (fn [~'string ~'substr] (.startsWith ~'string ~'substr))]
+                          ~'starts-with? (fn [~'string ~'substr] (.startsWith ~'string ~'substr))
+                          ~'includes? (fn [~'coll ~'item] (some #{~'item} ~'coll))]
                       ~new-expr))) ,,,,) 
               ((fn [expr] (prn expr) expr))
               (eval-str ,,,))))
 
+(defn nil->Out [by-floors]
+  (into {}
+        (for [[k v] by-floors]
+          [(if (nil? k) "Out!" k) v]))  )
+
+
 (defn filter-people [people]
-  (let [all-the-people (try
-                         (if-not (empty? @filters)
-                           (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
-                             (filter (apply every-pred my-filters) people))
-                           people)
-                         (catch :default e
-                           (println "Error while filtering")
-                           (prn e)))
-        nil->Out (fn [by-floors]
-                   (into {}
-                         (for [[k v] by-floors]
-                           [(if (nil? k) "Out!" k) v])))]
-    (some->> all-the-people
-             (group-by :KeyscanStatus)
-             (nil->Out)  ; mark the OUT ones for better processing!
-             (into (sorted-map)) ; sort
-             )))
+  (try
+    (if-not (empty? @filters)
+      (let [my-filters (map #(create-filter-fn all-profile-keys %) @filters)]
+        (filter (apply every-pred my-filters) people))
+      people)
+    (catch :default e
+      (println "Error while filtering")
+      (prn e))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -190,12 +188,45 @@
 (defn home-page []
   (try
     [:div
-     (let [people (filter-people @people-atom)]
+     (let [people (some->> (filter-people @people-atom)
+                           (group-by :KeyscanStatus)
+                           (nil->Out)  ; mark the OUT ones for better processing!
+                           (into (sorted-map)) ; sort
+                           )]
        (cond
          (nil? people) [:h2 "There has been an error while applying your filters!"]
          (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
          :else (for [[floor people] people]
                  ^{:key floor} [Floor floor people])))]
+    (catch :default e
+      (prn e)
+      [:h2 "There has been an error while applying your filters!"])))
+
+(defn StalkyPersonCard [user]
+  [:div.z-depth-1.tooltip {:style {:max-width 100
+                                   :margin 5 
+                                   :text-align :center}}
+   [:span.tooltiptext [:pre {:style {:text-align :left}} (prettify user)]]
+   [:div {:style {:width 100
+                  :height 100
+                  :background-image (str "url(" (:PhotoPath user) ")")
+                  :background-size "100% auto"
+                  :background-repeat :no-repeat}
+          :on-click #(.open js/window (genome/profile-link user))}]
+   [:div {:style {:width "100%" :font-size 16}} (:FirstName user)]
+   [:div {:style {:width "100%" :font-size 16 :font-weight :bold}} (:KeyscanStatus user)]
+   ])
+
+(defn Stalky []
+  (try
+    [:div {:style {:display :flex}} 
+     (let [people (->> (filter-people @people-atom)
+                   (sort-by :FirstName))]
+       (cond
+         (nil? people) [:h2 "There has been an error while applying your filters!"]
+         (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
+         :else (for [dude people]
+                    ^{:key (:UserID dude)} [StalkyPersonCard dude])))]
     (catch :default e
       (prn e)
       [:h2 "There has been an error while applying your filters!"])))
@@ -213,9 +244,6 @@
                (reset! readme content-md))))
     (fn []
       [:div {:dangerouslySetInnerHTML {:__html @readme}}])))
-
-(defn about [] (About))
-
 
 
 (defn Instructions 
@@ -275,14 +303,15 @@
        [:h3 "Examples"]
        [:p "Here are some example filters to get you started!"]
        [Examples current-profile [
-                                  "(startsWith? :FirstName \"M\")" 
+                                  "(starts-with? :FirstName \"M\")" 
                                   "(= :LaborRoleID \"APPLDEVL\")"
-                                  "(= :WorkTeamID $WorkTeamID)"
-                                  "(substring? :Title \"Quality\")"
-                                  "(>= :UserID $UserID)"
+                                  "(= :WorkTeamID $WorkTeamID) ; Klicksters in your team "
+                                  "(substring? :Title \"Quality\") ; Klicksters that have 'Quality' in their title"
+                                  "(> :UserID $UserID) ; Klicksters that got hired after you"
                                   "(= :KeyscanStatus \"In 4th Flr N\")"
-                                  "(or (startsWith? :FirstName \"M\") (substring? :Title \"Edit\"))"
-                                  "(startsWith? :KeyscanStatus \"In\")"
+                                  "(or (starts-with? :FirstName \"M\") (substring? :Title \"Edit\"))"
+                                  "(starts-with? :KeyscanStatus \"In\")"
+                                  "(includes? :Supervisors $UserID) ; Klicksters who report to you"
                   ]]
        [:hr]
        [:h3 "References"]
@@ -299,11 +328,15 @@
 (secretary/defroute "/" []
   (session/put! :current-page #'home-page))
 
+(secretary/defroute "/stalky" []
+  (session/put! :current-page #'Stalky))
+
 (secretary/defroute "/about" []
-  (session/put! :current-page #'about))
+  (session/put! :current-page #'About))
 
 (secretary/defroute "/filters" []
   (session/put! :current-page #'Filters))
+
 ;; -------------------------
 ;; History
 ;; must be called after routes have been defined
