@@ -305,6 +305,7 @@
        [Examples current-profile [
                                   "(starts-with? :FirstName \"M\")" 
                                   "(= :LaborRoleID \"APPLDEVL\")"
+                                  "(not (= :LaborCategoryID \"CREATIVE\"))"
                                   "(= :WorkTeamID $WorkTeamID) ; Klicksters in your team "
                                   "(substring? :Title \"Quality\") ; Klicksters that have 'Quality' in their title"
                                   "(> :UserID $UserID) ; Klicksters that got hired after you"
