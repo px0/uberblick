@@ -45,8 +45,9 @@
 
 (defn set-people-to-all-active-klicksters [atm interval]
   (go-loop []
-    (let [people (-> (<! (genome/<get-all-active-klickster-profiles))
-                     nil->Out)]
+    (let [people (->> (<! (genome/<get-all-active-klickster-profiles))
+                     nil->Out
+                     (sort-by :FirstName))]
       (when (> (count people) 0)
         (do
           (reset! atm people)
@@ -219,8 +220,7 @@
     [:div {:style {:display :flex
                    :flex-direction :row
                    :flex-wrap :wrap}} 
-     (let [people (->> (filter-people @people-atom)
-                   (sort-by :FirstName))]
+     (let [people (filter-people @people-atom)]
        (cond
          (nil? people) [:h2 "There has been an error while applying your filters!"]
          (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
