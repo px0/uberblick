@@ -252,7 +252,11 @@
    [:p "Here is a list of all available attributes:"
     [:p (str all-profile-keys)]
     "And for the record, here is your profile:"]
-   [:pre @current-profile]])
+   [:pre @current-profile]
+   [:p "If you want to see the Clojure functions that you can use check out "
+    [:a {:href "http://cljs.info/cheatsheet/"} "this cheatsheet"]
+    " and this "
+    [:a {:href "http://kanaka.github.io/clojurescript/web/synonym.html"} " comparison to JavaScript"]]])
 
 (defn New-Filter-Field [current-profile inputatm]
   [:div.row
@@ -285,7 +289,10 @@
   [:ul.collection
    (map-indexed (fn [idx filter]
                   ^{:key filter}
-                  [:li.collection-item filter [:a.secondary-content {:on-click #(add-filter @current-profile filter)} [:i.material-icons "playlist_add"]]]) filter-examples)])
+                  [:li.collection-item filter
+                   [:a.secondary-content {:on-click #(add-filter @current-profile filter)}
+                    [:i.material-icons "playlist_add"]]])
+                filter-examples)])
 
 (defn Filters []
   (let [inputatm (atom "")
@@ -300,12 +307,22 @@
        [Current-Filters inputatm]
        [New-Filter-Field current-profile inputatm]
        [:hr]
+       [:h3 "Introduction"]
+       [:p "Here you can define filters on the collection of Klicksters. They
+       will typically have the form (command parameter1 parameter2) - yes,
+       including the parentheses, they are imporant - but they can be
+       arbitrarily complex. Profile attributes can be referred to by
+       keywords (anything starting with a ':'), and attributes starting with a
+       '$' will automaticaly be replaced by attributes of *your* profile. I
+       know, that sounds confusing, but check out the examples below and play
+       around for a bit and it'll all make sense!"]
+       [:hr]
        [:h3 "Examples"]
        [:p "Here are some example filters to get you started!"]
        [Examples current-profile [
                                   "(starts-with? :FirstName \"M\")" 
                                   "(= :LaborRoleID \"APPLDEVL\")"
-                                  "(not (= :LaborCategoryID \"CREATIVE\"))"
+                                  "(not (= :LaborCategoryID \"PROJMGMT\"))"
                                   "(= :WorkTeamID $WorkTeamID) ; Klicksters in your team "
                                   "(substring? :Title \"Quality\") ; Klicksters that have 'Quality' in their title"
                                   "(> :UserID $UserID) ; Klicksters that got hired after you"
@@ -313,7 +330,10 @@
                                   "(or (starts-with? :FirstName \"M\") (substring? :Title \"Edit\"))"
                                   "(starts-with? :KeyscanStatus \"In\")"
                                   "(includes? :Supervisors $UserID) ; Klicksters who report to you"
-                  ]]
+                                  ]]
+       [:p "Note: Anything after ';' is a comment. If you want to learn some more about this syntax check out "
+        [:a {:href "http://learnxinyminutes.com/docs/clojure/"} "this quick introduction to Clojure"]
+        " and the links at the bottom of this page!"]
        [:hr]
        [:h3 "References"]
        [Instructions current-profile-str]])))
