@@ -17,7 +17,7 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:import goog.History))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -------------------------
 ;; State
 
 (defonce people-atom (local-storage (atom []) :people))
@@ -26,7 +26,7 @@
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
 ; (take! (genome/<get-all-active-klickster-profiles) (fn [profiles] (->> (apply merge profiles ) keys prn)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -------------------------
 ;; Actions
 
 
@@ -36,7 +36,6 @@
 
   ;; BusinessUnitName: Department
   ;; WorkTeam: Your actual team
-
 
 (defn nil->Out [people]
   (map (fn [peep]
@@ -58,7 +57,7 @@
 (set-people-to-all-active-klicksters people-atom (* 5 60 1000))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -------------------------
 ;; filter macro test
 (defn eval-str [s]
   (try
@@ -73,7 +72,7 @@
       (prn e))))
 
 (defn replace-current-user-symbols
-  "replaces keywords that are given in the form $keyword to the value of lookups to the given profile, e.g.
+  "Replaces keywords that are given in the form $keyword to the value of lookups to the given profile, e.g.
   the string \"(= :UserID $UserID)\" with the profile including {:UserID 123} will result in the string \"(= :UserID 123)\" "
   [profile expr]
   (let [$->kw (fn [kw] (->> kw str rest (apply str) keyword ))
@@ -87,7 +86,7 @@
                (walk/postwalk transform$)
                str)
       (catch :default e
-        (prn 'replace-current-user-symbols e)))))
+          (prn 'replace-current-user-symbols e)))))
 
 (defn create-filter-fn 
   "Creates a filter function of the form:
@@ -99,8 +98,7 @@
   will result in a function like
   (fn [user] (.startsWith (:name user) \"Max\"))
 
-  This can be later used to filter genome users by arbitrary criteria at runtime 
-  "
+  This can be later used to filter genome users by arbitrary criteria at runtime "
   [thekeys expr]
   (let [my-user (gensym "user")
         replace-where-appropriate (fn [sym]
@@ -131,7 +129,7 @@
       (prn e))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -------------------------
 ;; filter functions
 (defn add-filter 
   [profile filter-str]
@@ -339,6 +337,19 @@
        [:h3 "References"]
        [Instructions current-profile-str]])))
 
+(defn authenticate
+  ([]
+   (let [token (js/prompt "What is your Genome auth token?")]
+     (-> token
+         ((fn [t] (if (empty? t) nil t)))
+         (authenticate))))
+  ([token]
+   (prn 'token token) 
+   (genome/set-auth-token token)
+   (set! (.-location js/window) "/") ;hide the token!
+   (secretary/dispatch! "/")
+   ))
+
 (defn current-page []
   [:div [(session/get :current-page)]])
 
@@ -355,6 +366,12 @@
 
 (secretary/defroute "/about" []
   (session/put! :current-page #'About))
+
+(secretary/defroute "/auth" []
+  (authenticate))
+
+(secretary/defroute "/auth/:token" [token]
+  (authenticate token))
 
 (secretary/defroute "/filters" []
   (session/put! :current-page #'Filters))
