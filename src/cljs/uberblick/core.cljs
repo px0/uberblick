@@ -38,9 +38,16 @@
   ;; WorkTeam: Your actual team
 
 
+(defn nil->Out [people]
+  (map (fn [peep]
+         (let [location (:KeyscanStatus peep)]
+           (assoc peep :KeyscanStatus (or location "Out!"))))
+       people))
+
 (defn set-people-to-all-active-klicksters [atm interval]
   (go-loop []
-    (let [people (<! (genome/<get-all-active-klickster-profiles))]
+    (let [people (-> (<! (genome/<get-all-active-klickster-profiles))
+                     nil->Out)]
       (when (> (count people) 0)
         (do
           (reset! atm people)
@@ -113,12 +120,6 @@
               ((fn [expr] (prn expr) expr))
               (eval-str ,,,))))
 
-(defn nil->Out [by-floors]
-  (into {}
-        (for [[k v] by-floors]
-          [(if (nil? k) "Out!" k) v]))  )
-
-
 (defn filter-people [people]
   (try
     (if-not (empty? @filters)
@@ -182,15 +183,13 @@
                   :flex-direction :row
                   :flex-wrap :wrap}}
     (for [u users]
-       ^{:key (:UserID u)} [PersonCard u])
-  ]])
+       ^{:key (:UserID u)} [PersonCard u])]])
 
 (defn home-page []
   (try
     [:div
      (let [people (some->> (filter-people @people-atom)
                            (group-by :KeyscanStatus)
-                           (nil->Out)  ; mark the OUT ones for better processing!
                            (into (sorted-map)) ; sort
                            )]
        (cond
@@ -214,12 +213,14 @@
                   :background-repeat :no-repeat}
           :on-click #(.open js/window (genome/profile-link user))}]
    [:div {:style {:width "100%" :font-size 16}} (:FirstName user)]
-   [:div {:style {:width "100%" :font-size 16 :font-weight :bold}} (:KeyscanStatus user)]
+   [:div {:style {:width "100%" :margin-top -5 :font-size 16 :font-weight :bold}} (:KeyscanStatus user)]
    ])
 
 (defn Stalky []
   (try
-    [:div {:style {:display :flex}} 
+    [:div {:style {:display :flex
+                   :flex-direction :row
+                   :flex-wrap :wrap}} 
      (let [people (->> (filter-people @people-atom)
                    (sort-by :FirstName))]
        (cond
