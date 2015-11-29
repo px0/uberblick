@@ -31,3 +31,5 @@ I have been mostly following the instructions laid out
 ## Create a production build
 Run this to build the project in a production config: `lein clean && lein with-profile prod cljsbuild once`
 
+# Moar
+Here is some other stuff I made for Klick: [http://klick.px0.de](http://klick.px0.de)
