@@ -1,5 +1,5 @@
-(defproject uberblick "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
+(defproject uberblick "0.1.0"
+  :description "Get an arbitrarily complex overview of where Klicksters are"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -23,7 +23,7 @@
                  [cljs-http "0.1.37"]
                  [timothypratley/reanimated "0.1.1"]
                  [markdown-clj "0.9.80"] 
-                 [genome-cljs "0.1.0-SNAPSHOT"]
+                 [genome-cljs "0.1.0"]
                  [Org.clojure/tools.reader "0.10.0"]
                  ]
 
