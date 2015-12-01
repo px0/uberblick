@@ -1,4 +1,4 @@
-(defproject uberblick "0.1.0"
+(defproject uberblick "0.2.0-SNAPSHOT"
   :description "Get an arbitrarily complex overview of where Klicksters are"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
