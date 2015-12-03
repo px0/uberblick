@@ -109,4 +109,5 @@
                                              :compiler
                                              {:optimizations :simple
                                               :verbose true
+                                              :static-fns true
                                               :pretty-print false}}}}}})
