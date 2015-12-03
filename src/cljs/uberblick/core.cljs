@@ -346,8 +346,8 @@
   ([token]
    (prn 'token token) 
    (genome/set-auth-token token)
-   (set! (.-location js/window) "/") ;hide the token!
-   (secretary/dispatch! "/")
+   (set! (.-location js/window) "#filters") ;hide the token!
+   (secretary/dispatch! "#filters")
    ))
 
 (defn current-page []
