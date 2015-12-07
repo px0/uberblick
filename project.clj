@@ -23,8 +23,8 @@
                  [cljs-http "0.1.37"]
                  [timothypratley/reanimated "0.1.1"]
                  [markdown-clj "0.9.80"] 
-                 [genome-cljs "0.1.0"]
-                 [Org.clojure/tools.reader "0.10.0"]
+                 [genome-cljs "0.2.0"]
+                 [org.clojure/tools.reader "0.10.0"]
                  ]
 
   :plugins [[lein-environ "1.0.1"]

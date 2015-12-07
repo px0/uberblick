@@ -21,6 +21,8 @@
 ;; State
 
 (defonce people-atom (local-storage (atom []) :people))
+(defonce filtered-people-atom (atom []))
+(defonce sorted-people-atom (atom {}))
 (defonce filters (local-storage (atom ["(starts-with? :KeyscanStatus \"In\")"]) :filters))
 
 (def all-profile-keys '(:IsObjectivesAdmin :LaborCategoryID :FirstName :LaborRoleID :OversightPercent :WorkTeamID :BusinessUnitName :MobileNumber :PhotoFileName :IsCandidateAdmin :CanCommunicateClient :UserSystemID :Email :CreatedDate :BillingTargetHoursPerYear :Title :MobileNumberCountryCode :IsClient :IsScheduleConfirmationRulesEnforced :LastName :IsScheduleAdmin :UserName :Extension :TimeZoneName :HomeNumber :IsNotAPerson :UserID :KeyscanUpdated :HasDirectReports :IsAdmin :BusinessUnitID :CountryID :CompanyBusinessUnitID :TimeZoneID :PhotoPath :Name :Roles :CompanyBusinessUnitName :IsWeeklyReviewAdmin :Enabled :TagName :Supervisors :KeyscanStatus :OutOfOfficeReason :Status))
@@ -50,7 +52,7 @@
                      (sort-by :FirstName))]
       (when (> (count people) 0)
         (do
-          (reset! atm people)
+          (reset! atm (filter-people people))
           (println "Downloaded" (count @atm) "Klicksters")))) 
     (<! (timeout interval))
     (recur)))
@@ -130,6 +132,24 @@
       (prn e))))
 
 
+(add-watch people-atom :filter-people
+           (fn [key atom old-state new-state]
+             (prn "people got updated. Filtering")
+             (reset! filtered-people-atom
+                     (some->> new-state
+                              (filter-people)
+                              ))))
+
+(add-watch filtered-people-atom :sort-people
+           (fn [key atom old-state new-state]
+             (prn "sorted-people got updated. Now sorting into new atom!")
+             (reset! sorted-people-atom
+                     (some->> new-state
+                              (group-by :KeyscanStatus)
+                              (into (sorted-map)) ; sort
+                              ))))
+
+
 ;; -------------------------
 ;; filter functions
 (defn add-filter 
@@ -187,10 +207,7 @@
 (defn home-page []
   (try
     [:div
-     (let [people (some->> (filter-people @people-atom)
-                           (group-by :KeyscanStatus)
-                           (into (sorted-map)) ; sort
-                           )]
+     (let [people @sorted-people-atom]
        (cond
          (nil? people) [:h2 "There has been an error while applying your filters!"]
          (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
@@ -220,7 +237,7 @@
     [:div {:style {:display :flex
                    :flex-direction :row
                    :flex-wrap :wrap}} 
-     (let [people (filter-people @people-atom)]
+     (let [people @filtered-people-atom]
        (cond
          (nil? people) [:h2 "There has been an error while applying your filters!"]
          (= 0 (count people)) [:h2 "No one that fits your filters is in!"]
