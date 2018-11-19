@@ -39,6 +39,9 @@
 
 ;; Network
 
+(defn sql
+  [sqlexpr cljdata]
+  (alasql sqlexpr (clj->js [cljdata])))
 
 
   ;; BusinessUnitName: Department
@@ -281,6 +284,10 @@
 
 (secretary/defroute "/auth/:token" [token]
   (authenticate token))
+
+(secretary/defroute "/hello" []
+  (session/put! :current-page (constantly [:div
+                                          [:h1 "hello world"]])))
 
 ;; (secretary/defroute "/filters" []
 ;;   (session/put! :current-page #'Filters))
