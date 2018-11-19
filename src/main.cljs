@@ -12,6 +12,7 @@
             [clojure.walk :as walk]
             [cljs.pprint :as pprint]
             [alandipert.storage-atom :refer [local-storage]]
+            ["alasql" :as alasql]
             )
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:import goog.History))
@@ -61,7 +62,6 @@
     (<! (timeout interval))
     (recur)))
 
-(set-people-to-all-active-klicksters people-atom (* 5 60 1000))
 
 
 
@@ -305,7 +305,9 @@
 
 (defn init! []
   (hook-browser-navigation!)
-  (mount-root))
+  (mount-root)
+  (set-people-to-all-active-klicksters people-atom (* 5 60 1000))
+)
 
 
 (defn reload! []

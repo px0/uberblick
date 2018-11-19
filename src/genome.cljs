@@ -2,6 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
   (:require [cljs-http.client :as http]
             [cljs.core.async :refer [<! chan put! take! >! alts! timeout close!] :as async]
+            [clojure.walk :refer [postwalk]]
             ))
 
 (enable-console-print!)
@@ -26,6 +27,15 @@
 (defn dbg
   ([msg x ] (prn msg x) x)
   ([x] (prn x) x))
+
+(defn ->date
+  "convert a .net '/Date(....)/' datestring into a JS date. Drops timezones"
+  [datestr]
+  (if (string? datestr)
+    (if-let [[_ match] (re-matches #"/Date\((.+?)(?:-.+)?\)/" datestr)]
+      (js/Date. (js/parseInt match))
+      datestr)
+    datestr))
 
 (defn- extract-content
   "Extract the content from a typical Genome reply"
@@ -107,7 +117,7 @@
       (let [all-klicksters (<! (<all-active-users))
             all-userids (extract-userids all-klicksters)
             all-profiles (<! (<get-all-active-userid-profiles all-userids))
-            all-proper-profiles (map add-full-picturepath all-profiles)]
+            all-proper-profiles (->> all-profiles (map add-full-picturepath) (postwalk ->date))]
         (when all-proper-profiles
           (>! out all-proper-profiles))
         (close! out)))
@@ -135,6 +145,7 @@ this is not the same a call to the User/UserID=... webservice. If you need that 
                            (auth-token-query-param {:channel (chan 1 (extract-content))})))
            (map add-full-picturepath)
            first
+           (postwalk ->date)
            (>! out)))
     out))
 
