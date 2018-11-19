@@ -1,0 +1,31 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src"]
+
+ :dependencies
+ [
+  [clj-commons/secretary "1.2.4"]
+  [venantius/accountant "0.2.4"]
+  [cider/cider-nrepl "0.18.0"]
+  [reagent "0.8.1"]
+  [reagent-forms "0.5.43"]
+  [reagent-utils "0.3.1"]
+  [alandipert/storage-atom "2.0.1"]
+  [cljs-http "0.1.45"]
+  [reanimated "0.6.1"]
+  [markdown-clj "1.0.5"]
+  [org.clojure/core.async "0.4.474"]
+  ]
+
+ :nrepl {:port 8202}
+
+ :builds
+ {:app {:target     :browser
+        :output-dir "public/js"
+        :asset-path "/js"
+        :modules    {:main {:init-fn main/init!}}
+        :devtools
+        {:http-root "public"
+         :http-port 8020
+         :after-load main/reload!}}
+  }}
